@@ -1,0 +1,36 @@
+using System.Reflection;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Interop;
+using DockerImageExplorer;
+class Program {
+    [STAThread] static void Main() {
+
+        var app = new Application(); var viewer = new Viewer();
+        var flags = BindingFlags.NonPublic | BindingFlags.Instance;
+        T Field<T>(string name) => (T)typeof(Viewer).GetField(name,flags)!.GetValue(viewer)!;
+        void Assert(bool value, string message) { if (!value) throw new Exception(message); }
+        var layers = Field<ListBox>("layers"); var files = Field<DataGrid>("files"); var search = Field<TextBox>("search");
+        var layer = new Layer { Title="Layer 1 (Final)", Archive="", Command="" };
+        layers.ItemsSource = new[] { layer }; layers.SelectedIndex = 0;
+        typeof(Viewer).GetField("currentPath",flags)!.SetValue(viewer,"a/b");
+        typeof(Viewer).GetMethod("UpdateFiles",flags)!.Invoke(viewer,null);
+        Assert(files.Items.Cast<ExplorerRow>().Single().Name == "..", "Parent entry missing");
+        using var source = new HwndSource(new HwndSourceParameters("Navigation test") { Width=1,Height=1,WindowStyle=0 });
+        var back = new KeyEventArgs(Keyboard.PrimaryDevice,source,0,Key.Back) { RoutedEvent=Keyboard.PreviewKeyDownEvent };
+        files.RaiseEvent(back);
+        Assert(Field<string>("currentPath") == "a" && back.Handled,"Backspace did not navigate from explorer");
+        search.Text = "abc";
+        search.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice,source,0,Key.Back) { RoutedEvent=Keyboard.PreviewKeyDownEvent });
+        Assert(Field<string>("currentPath") == "a", "Backspace in search navigated unexpectedly");
+        Assert(layers.ContextMenu.Items.Cast<MenuItem>().Select(i => (string)i.Header).SequenceEqual(new[] {"Export layer","Export file system","Export entire filesystem"}),"Layer menu incorrect");
+        Assert(files.ContextMenu.Items.Cast<MenuItem>().Select(i => (string)i.Header).SequenceEqual(new[] {"Export","Export as tar"}),"Explorer menu incorrect");
+        var labels = Field<WrapPanel>("toolbar").Children.Cast<Button>().Select(b => (string)b.Content).ToArray();
+        Assert(labels.Contains("Export selected") && labels.Contains("Export selection as tar") && !labels.Contains("Copy image archive"),"Toolbar incorrect");
+        Assert(Field<TabControl>("previewTabs").Items.Cast<TabItem>().Any(t => (string)t.Header == "Video / Audio"),"Media preview missing");
+        Assert(Field<MediaElement>("media").LoadedBehavior == MediaState.Manual,"Media playback should be controlled manually");
+        viewer.Close(); app.Shutdown(); Console.WriteLine("PASS: routed Backspace navigation, editable search exclusion, parent folder, context menus, toolbar labels, media controls.");
+    }
+}
+

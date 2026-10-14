@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">  <PropertyGroup>
+    <OutputType>WinExe</OutputType><AssemblyName>DockerImageExplorer</AssemblyName><RootNamespace>DockerImageExplorer</RootNamespace><ApplicationIcon>AppIcon.ico</ApplicationIcon><SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0</InformationalVersion>
+    <Product>DockerImageExplorer</Product>
+    <Description>Explore Docker and OCI image layers without Docker Engine.</Description>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup><Compile Include="Core.cs" /><Compile Include="App.cs" /><Compile Include="Interactions.cs" /><Compile Include="ExplorerModel.cs" /><Compile Include="FileIcons.cs" /><Resource Include="AppIcon.ico" /></ItemGroup>
+</Project>
+
+
+
+

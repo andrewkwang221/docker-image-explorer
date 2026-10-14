@@ -1,0 +1,22 @@
+# Build and publish output
+**/bin/
+**/obj/
+Portable/
+publish/
+*.exe
+*.zip
+
+# IDE and user-local settings
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
