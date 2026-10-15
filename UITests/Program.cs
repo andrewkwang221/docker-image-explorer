@@ -39,7 +39,15 @@ class Program
         search.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Back) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
         Assert(Field<string>("currentPath") == "a", "Backspace in search navigated unexpectedly");
         Assert(
-            layers.ContextMenu.Items.Cast<MenuItem>().Select(i => (string)i.Header).SequenceEqual(new[] { "Export layer", "Export file system", "Export entire filesystem" }),
+            layers.ContextMenu.Items.Cast<MenuItem>().Select(i => (string)i.Header).SequenceEqual(new[]
+            {
+                "Export layer",
+                "Save layer",
+                "Export file system",
+                "Save file system",
+                "Export entire filesystem",
+                "Save entire filesystem",
+            }),
             "Layer menu incorrect");
         Assert(
             files.ContextMenu.Items.Cast<MenuItem>().Select(i => (string)i.Header).SequenceEqual(new[] { "Export", "Export as tar" }),
@@ -47,7 +55,12 @@ class Program
 
         var labels = Field<WrapPanel>("toolbar").Children.Cast<Button>().Select(b => (string)b.Content).ToArray();
         Assert(
-            labels.Contains("Export selected") && labels.Contains("Export selection as tar") && !labels.Contains("Copy image archive"),
+            labels.Contains("Export selected")
+                && labels.Contains("Export selection as tar")
+                && labels.Contains("Save layer")
+                && labels.Contains("Save filesystem")
+                && labels.Contains("Save entire filesystem")
+                && !labels.Contains("Copy image archive"),
             "Toolbar incorrect");
         Assert(Field<TabControl>("previewTabs").Items.Cast<TabItem>().Any(t => (string)t.Header == "Video / Audio"), "Media preview missing");
         Assert(Field<MediaElement>("media").LoadedBehavior == MediaState.Manual, "Media playback should be controlled manually");

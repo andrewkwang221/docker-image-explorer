@@ -154,7 +154,83 @@ try
     Assert(
         ociSession.Layers.Count == 1 && ociSession.Layers[0].Files.Count == 3 && ociSession.Layers[0].Command == "oci-base",
         "OCI gzip layers failed");
-    Console.WriteLine("PASS: Docker and OCI archives, gzip archives/layers, layer snapshots, whiteouts, change classification, history, content, filesystem export, path validation.");
+
+    var baseLayer = Path.Combine(dir, "base.tar");
+    var topLayer = Path.Combine(dir, "top.tar");
+    void WriteLayer(string path, params (TarEntryType Type, string Name, string? Data, string? Link)[] rows)
+    {
+        using var output = File.Create(path);
+        using var writer = new TarWriter(output);
+        foreach (var (type, name, data, link) in rows)
+        {
+            var entry = new PaxTarEntry(type, name);
+            if (link != null)
+                entry.LinkName = link;
+
+            if (data == null)
+            {
+                writer.WriteEntry(entry);
+                continue;
+            }
+
+            using var content = new MemoryStream(Encoding.UTF8.GetBytes(data));
+            entry.DataStream = content;
+            writer.WriteEntry(entry);
+        }
+    }
+
+    WriteLayer(baseLayer, (TarEntryType.RegularFile, "usr/bin/tool", "ok", null));
+    WriteLayer(
+        topLayer,
+        (TarEntryType.SymbolicLink, "usr/bin/python", null, "/usr/bin/tool"),
+        (TarEntryType.SymbolicLink, "bin", null, "/usr/bin"),
+        (TarEntryType.SymbolicLink, "missing", null, "/no/such"));
+    var linkArchive = Path.Combine(dir, "links.tar");
+    using (var output = File.Create(linkArchive))
+    using (var writer = new TarWriter(output))
+    {
+        writer.WriteEntry(baseLayer, "base.tar");
+        writer.WriteEntry(topLayer, "top.tar");
+        using var config = new MemoryStream(Encoding.UTF8.GetBytes("{\"history\":[{\"created_by\":\"base\"},{\"created_by\":\"links\"}]}"));
+        writer.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, "config.json") { DataStream = config });
+        using var manifest = new MemoryStream(Encoding.UTF8.GetBytes("[{\"Config\":\"config.json\",\"Layers\":[\"base.tar\",\"top.tar\"]}]"));
+        writer.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, "manifest.json") { DataStream = manifest });
+    }
+
+    using var linkSession = new ImageSession();
+    linkSession.LoadArchive(linkArchive);
+    var linked = linkSession.Layers[1];
+    var savedFiles = new Dictionary<string, ImageFile>(linked.Files, StringComparer.Ordinal)
+    {
+        ["run/pipe"] = new("run/pipe", TarEntryType.Fifo, null, "", 0, 0, 0, 0, DateTimeOffset.UnixEpoch),
+    };
+    var saved = Path.Combine(dir, "saved-full");
+    var report = ExplorerModel.SaveWindows(saved, savedFiles, savedFiles);
+    Assert(report.SymbolicLinks == 3 && report.SpecialFiles == 1, "Windows save did not count links and special files");
+    Assert(File.ReadAllText(Path.Combine(saved, "usr", "bin", "python")) == "ok", "File symlink was not saved as the target file");
+    Assert(Directory.Exists(Path.Combine(saved, "bin")), "Directory symlink was not saved as a Windows directory");
+    Assert(File.ReadAllText(Path.Combine(saved, "bin", "tool")) == "ok", "Directory symlink did not point at the saved folder");
+
+    Assert(File.ReadAllText(Path.Combine(saved, "missing")).Contains("no/such"), "Dangling symbolic link was not saved");
+    Assert(File.ReadAllText(Path.Combine(saved, "run", "pipe")) == "fifo", "Special Linux file was not saved");
+    var changes = ExplorerModel.ChangedFiles(linked);
+    Assert(!changes.ContainsKey("usr/bin/tool"), "Layer save included a lower-layer file");
+    var savedLayer = Path.Combine(dir, "saved-layer");
+    ExplorerModel.SaveWindows(savedLayer, changes, linked.Files);
+    Assert(File.ReadAllText(Path.Combine(savedLayer, "usr", "bin", "python")) == "ok", "Layer save dropped symbolic link content");
+    bool saveRejected = false;
+    try
+    {
+        var illegal = linked.Files["usr/bin/tool"] with { Path = "CON.txt" };
+        ExplorerModel.SaveWindows(Path.Combine(dir, "saved-illegal"), new Dictionary<string, ImageFile> { [illegal.Path] = illegal }, linked.Files);
+    }
+    catch (IOException)
+    {
+        saveRejected = true;
+    }
+
+    Assert(saveRejected && !Directory.Exists(Path.Combine(dir, "saved-illegal")), "Windows save accepted a name Windows cannot store");
+    Console.WriteLine("PASS: Docker and OCI archives, gzip archives/layers, layer snapshots, whiteouts, change classification, history, content, filesystem export, path validation, Windows save of symbolic links.");
 }
 finally
 {

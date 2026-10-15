@@ -79,8 +79,11 @@ public sealed partial class Viewer
         AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(NavigationKey), true);
         layers.ContextMenu = Menu(
             ("Export layer", () => Export(0)),
+            ("Save layer", () => SaveDirect(0)),
             ("Export file system", () => Export(1)),
-            ("Export entire filesystem", () => Export(2)));
+            ("Save file system", () => SaveDirect(1)),
+            ("Export entire filesystem", () => Export(2)),
+            ("Save entire filesystem", () => SaveDirect(2)));
         layers.PreviewMouseRightButtonDown += (_, e) =>
         {
             if (Ancestor<ListBoxItem>(e.OriginalSource as DependencyObject) is ListBoxItem item)

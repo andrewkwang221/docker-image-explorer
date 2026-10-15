@@ -1,6 +1,9 @@
 using System.Formats.Tar;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Win32.SafeHandles;
 
 namespace DockerImageExplorer;
 
@@ -146,6 +149,91 @@ public static class ExplorerModel
         return result;
     }
 
+    public static Dictionary<string, ImageFile> ChangedFiles(Layer layer)
+    {
+        var result = new Dictionary<string, ImageFile>(StringComparer.Ordinal);
+        foreach (var change in layer.Changes)
+        {
+            if (change.Action == "Deleted" || change.File == null)
+                result.Remove(change.Path);
+            else
+                result[change.Path] = change.File;
+        }
+
+        return result;
+    }
+
+    public readonly record struct WindowsSaveResult(int Entries, int SymbolicLinks, int SpecialFiles)
+    {
+        public string Describe(string destination)
+        {
+            var text = $"Saved {Entries} entries to {destination}";
+            if (SymbolicLinks > 0)
+                text += ". Symbolic links were saved as Windows links or as the files and folders they point to.";
+            if (SpecialFiles > 0)
+                text += $" {SpecialFiles} special Linux entries were saved as text notes.";
+
+            return text;
+        }
+    }
+
+    public static WindowsSaveResult SaveWindows(
+        string destination,
+        IReadOnlyDictionary<string, ImageFile> entries,
+        IReadOnlyDictionary<string, ImageFile> filesystem)
+    {
+        var files = entries.Values.Where(file => file.Path.Length > 0).ToArray();
+        RejectUnsupportedWindowsNames(destination, files);
+        Directory.CreateDirectory(destination);
+
+        var symlinkPaths = new HashSet<string>(
+            files.Where(file => file.Type == TarEntryType.SymbolicLink).Select(file => file.Path),
+            StringComparer.Ordinal);
+        var symbolicLinks = 0;
+        var specialFiles = 0;
+
+        foreach (var file in files.Where(file => file.Type == TarEntryType.Directory && !LivesUnderSymlink(file.Path, symlinkPaths)))
+            Directory.CreateDirectory(ToWindows(destination, file.Path));
+
+        foreach (var file in files.Where(file => IsStoredFile(file) && !LivesUnderSymlink(file.Path, symlinkPaths)))
+            WriteStoredFile(destination, file, filesystem);
+
+        var pendingLinks = files.Where(file => file.Type == TarEntryType.SymbolicLink).ToList();
+        while (pendingLinks.Count > 0)
+        {
+            var ready = pendingLinks.Where(link =>
+            {
+                var resolved = FollowSymlink(link.Path, link.Link, filesystem);
+                return resolved == null || pendingLinks.All(other => other.Path != resolved);
+            }).ToList();
+            if (ready.Count == 0)
+                ready = [pendingLinks[0]];
+
+            foreach (var file in ready)
+            {
+                WriteSymbolicLink(destination, file, entries, filesystem);
+                pendingLinks.Remove(file);
+                symbolicLinks++;
+            }
+        }
+
+        foreach (var file in files.Where(file => file.Type == TarEntryType.Directory && LivesUnderSymlink(file.Path, symlinkPaths)))
+            Directory.CreateDirectory(ToWindows(destination, file.Path));
+
+        foreach (var file in files.Where(file => IsStoredFile(file) && LivesUnderSymlink(file.Path, symlinkPaths)))
+            WriteStoredFile(destination, file, filesystem);
+
+        foreach (var file in files.Where(file => !IsStoredFile(file) && file.Type is not (TarEntryType.Directory or TarEntryType.SymbolicLink)))
+        {
+            var windows = ToWindows(destination, file.Path);
+            EnsureParent(windows);
+            File.WriteAllText(windows, DescribeSpecial(file));
+            specialFiles++;
+        }
+
+        return new WindowsSaveResult(files.Length, symbolicLinks, specialFiles);
+    }
+
     public static void Download(string destination, IReadOnlyDictionary<string, ImageFile> selected)
     {
         var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -193,6 +281,319 @@ public static class ExplorerModel
             }
         }
     }
+
+    static void RejectUnsupportedWindowsNames(string destination, IReadOnlyList<ImageFile> files)
+    {
+        var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var components = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files)
+        {
+            var parts = file.Path.Split('/');
+            if (parts.Any(part => part.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || part.EndsWith('.') || part.EndsWith(' ') || IsReserved(part)))
+                throw new IOException($"Windows cannot store \"{file.Path}\". Use Export as tar instead.");
+
+            var prefix = "";
+            foreach (var part in parts)
+            {
+                prefix = prefix.Length == 0 ? part : prefix + "/" + part;
+                if (components.TryGetValue(prefix, out var casing) && casing != prefix)
+                    throw new IOException($"Case-sensitive names conflict on Windows at \"{file.Path}\". Use Export as tar instead.");
+
+                components[prefix] = prefix;
+            }
+
+            var target = Path.GetFullPath(ToWindows(destination, file.Path));
+            var root = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
+            if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !targets.Add(target))
+                throw new IOException($"Conflicting Windows paths at \"{file.Path}\". Use Export as tar instead.");
+        }
+    }
+
+    static void WriteStoredFile(string destination, ImageFile file, IReadOnlyDictionary<string, ImageFile> filesystem)
+    {
+        var windows = ToWindows(destination, file.Path);
+        EnsureParent(windows);
+        var resolved = ImageSession.Resolve(file, filesystem);
+        if (resolved.Blob != null)
+            File.Copy(resolved.Blob, windows, false);
+        else if (file.Type == TarEntryType.HardLink)
+            File.WriteAllText(windows, file.Link);
+        else
+            File.WriteAllBytes(windows, []);
+    }
+
+    static void WriteSymbolicLink(
+        string destination,
+        ImageFile link,
+        IReadOnlyDictionary<string, ImageFile> entries,
+        IReadOnlyDictionary<string, ImageFile> filesystem)
+    {
+        var windows = ToWindows(destination, link.Path);
+        EnsureParent(windows);
+        var resolved = FollowSymlink(link.Path, link.Link, filesystem);
+        if (resolved != null
+            && IsDirectoryTarget(resolved, filesystem)
+            && DirectoryWillExist(resolved, entries)
+            && TryLinkDirectory(windows, ToWindows(destination, resolved)))
+            return;
+
+        if (resolved != null && filesystem.TryGetValue(resolved, out var target) && target.Type != TarEntryType.Directory)
+        {
+            var content = ImageSession.Resolve(target, filesystem);
+            var targetWindows = DirectoryWillExist(resolved, entries) || entries.ContainsKey(resolved)
+                ? ToWindows(destination, resolved)
+                : null;
+            if (content.Blob != null && targetWindows != null && File.Exists(targetWindows) && TryLinkFile(windows, targetWindows))
+                return;
+
+            if (content.Blob != null)
+            {
+                File.Copy(content.Blob, windows, false);
+                return;
+            }
+        }
+
+        File.WriteAllText(windows, link.Link);
+    }
+
+    static bool IsStoredFile(ImageFile file) =>
+        file.Type is TarEntryType.RegularFile or TarEntryType.V7RegularFile or TarEntryType.ContiguousFile
+            or TarEntryType.SparseFile or TarEntryType.HardLink;
+
+    static bool LivesUnderSymlink(string path, HashSet<string> symlinkPaths)
+    {
+        var index = path.LastIndexOf('/');
+        while (index > 0)
+        {
+            if (symlinkPaths.Contains(path[..index]))
+                return true;
+
+            index = path.LastIndexOf('/', index - 1);
+        }
+
+        return false;
+    }
+
+    static bool IsDirectoryTarget(string path, IReadOnlyDictionary<string, ImageFile> filesystem)
+    {
+        if (filesystem.TryGetValue(path, out var file))
+            return file.Type == TarEntryType.Directory;
+
+        var prefix = path + "/";
+        return filesystem.Keys.Any(key => key.StartsWith(prefix, StringComparison.Ordinal));
+    }
+
+    static bool DirectoryWillExist(string path, IReadOnlyDictionary<string, ImageFile> entries)
+    {
+        if (entries.TryGetValue(path, out var file) && file.Type == TarEntryType.Directory)
+            return true;
+
+        var prefix = path + "/";
+        return entries.Keys.Any(key => key.StartsWith(prefix, StringComparison.Ordinal));
+    }
+
+    static string? FollowSymlink(string path, string link, IReadOnlyDictionary<string, ImageFile> filesystem)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var location = path;
+        var text = link;
+        string? resolved = null;
+        for (var hop = 0; hop < 32; hop++)
+        {
+            resolved = CombineLinuxPath(location, text);
+            if (resolved == null || !seen.Add(resolved))
+                return null;
+
+            if (!filesystem.TryGetValue(resolved, out var target) || target.Type != TarEntryType.SymbolicLink)
+                return resolved;
+
+            location = resolved;
+            text = target.Link;
+        }
+
+        return null;
+    }
+
+    static string? CombineLinuxPath(string linkPath, string linkText)
+    {
+        if (linkText.Contains('\\') || linkText.Contains('\0'))
+            return null;
+
+        var raw = linkText.StartsWith('/')
+            ? linkText
+            : (linkPath.Contains('/') ? linkPath[..linkPath.LastIndexOf('/')] + "/" : "") + linkText;
+        var parts = new List<string>();
+        foreach (var part in raw.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (part == ".")
+                continue;
+
+            if (part == "..")
+            {
+                if (parts.Count == 0)
+                    return null;
+
+                parts.RemoveAt(parts.Count - 1);
+                continue;
+            }
+
+            parts.Add(part);
+        }
+
+        return string.Join('/', parts);
+    }
+
+    static string DescribeSpecial(ImageFile file) => file.Type switch
+    {
+        TarEntryType.Fifo => "fifo",
+        TarEntryType.CharacterDevice => $"character device {file.DeviceMajor}:{file.DeviceMinor}",
+        TarEntryType.BlockDevice => $"block device {file.DeviceMajor}:{file.DeviceMinor}",
+        _ => file.Type.ToString(),
+    };
+
+    static string ToWindows(string destination, string imagePath) =>
+        Path.Combine(destination, imagePath.Replace('/', Path.DirectorySeparatorChar));
+
+    static void EnsureParent(string windowsPath)
+    {
+        var parent = Path.GetDirectoryName(windowsPath);
+        if (!string.IsNullOrEmpty(parent))
+            Directory.CreateDirectory(parent);
+    }
+
+    static bool TryLinkFile(string linkPath, string targetPath)
+    {
+        try
+        {
+            File.CreateSymbolicLink(linkPath, Path.GetRelativePath(Path.GetDirectoryName(linkPath)!, targetPath));
+            return true;
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return CreateHardLink(linkPath, targetPath, IntPtr.Zero);
+    }
+
+    static bool TryLinkDirectory(string linkPath, string targetPath)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(linkPath, Path.GetRelativePath(Path.GetDirectoryName(linkPath)!, targetPath));
+            return true;
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return TryCreateJunction(linkPath, targetPath);
+    }
+
+    static bool TryCreateJunction(string junctionPath, string targetPath)
+    {
+        if (File.Exists(junctionPath) || Directory.Exists(junctionPath))
+            return false;
+
+        try
+        {
+            Directory.CreateDirectory(junctionPath);
+            if (SetJunction(junctionPath, Path.GetFullPath(targetPath)))
+                return true;
+
+            Directory.Delete(junctionPath);
+            return false;
+        }
+        catch (IOException)
+        {
+            if (Directory.Exists(junctionPath))
+                Directory.Delete(junctionPath, false);
+
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            if (Directory.Exists(junctionPath))
+                Directory.Delete(junctionPath, false);
+
+            return false;
+        }
+    }
+
+    static bool SetJunction(string junctionPath, string targetPath)
+    {
+        if (!targetPath.EndsWith('\\'))
+            targetPath += '\\';
+
+        var substitute = Encoding.Unicode.GetBytes(@"\??\" + targetPath);
+        var print = Encoding.Unicode.GetBytes(targetPath);
+        var dataLength = 8 + substitute.Length + 2 + print.Length + 2;
+        var buffer = new byte[8 + dataLength];
+        WriteUInt(buffer, 0, 0xA0000003);
+        WriteUShort(buffer, 4, (ushort)dataLength);
+        WriteUShort(buffer, 8, 0);
+        WriteUShort(buffer, 10, (ushort)substitute.Length);
+        WriteUShort(buffer, 12, (ushort)(substitute.Length + 2));
+        WriteUShort(buffer, 14, (ushort)print.Length);
+        Buffer.BlockCopy(substitute, 0, buffer, 16, substitute.Length);
+        Buffer.BlockCopy(print, 0, buffer, 16 + substitute.Length + 2, print.Length);
+
+        using var handle = CreateFile(
+            junctionPath,
+            0x40000000,
+            FileShare.ReadWrite,
+            IntPtr.Zero,
+            FileMode.Open,
+            0x02200000,
+            IntPtr.Zero);
+        if (handle.IsInvalid)
+            return false;
+
+        return DeviceIoControl(handle, 0x000900A4, buffer, buffer.Length, IntPtr.Zero, 0, out _, IntPtr.Zero);
+    }
+
+    static void WriteUInt(byte[] buffer, int offset, uint value)
+    {
+        buffer[offset] = (byte)value;
+        buffer[offset + 1] = (byte)(value >> 8);
+        buffer[offset + 2] = (byte)(value >> 16);
+        buffer[offset + 3] = (byte)(value >> 24);
+    }
+
+    static void WriteUShort(byte[] buffer, int offset, ushort value)
+    {
+        buffer[offset] = (byte)value;
+        buffer[offset + 1] = (byte)(value >> 8);
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool CreateHardLink(string fileName, string existingFileName, IntPtr securityAttributes);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern SafeFileHandle CreateFile(
+        string fileName,
+        uint access,
+        FileShare share,
+        IntPtr securityAttributes,
+        FileMode creationDisposition,
+        uint flags,
+        IntPtr templateFile);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool DeviceIoControl(
+        SafeFileHandle device,
+        uint controlCode,
+        byte[] inBuffer,
+        int inBufferSize,
+        IntPtr outBuffer,
+        int outBufferSize,
+        out int bytesReturned,
+        IntPtr overlapped);
 
     static bool IsReserved(string name)
     {

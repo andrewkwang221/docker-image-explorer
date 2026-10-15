@@ -101,8 +101,11 @@ public sealed partial class Viewer : Window
         Button("Export selected", () => SaveSelection(false));
         Button("Export selection as tar", () => SaveSelection(true));
         Button("Export layer", () => Export(0));
+        Button("Save layer", () => SaveDirect(0));
         Button("Export filesystem", () => Export(1));
+        Button("Save filesystem", () => SaveDirect(1));
         Button("Export entire filesystem", () => Export(2));
+        Button("Save entire filesystem", () => SaveDirect(2));
         Button("Image metadata", () =>
         {
             preview.Text = session?.Description ?? "Open an image first.";
@@ -592,6 +595,36 @@ public sealed partial class Viewer : Window
             await Task.Run(() => ExplorerModel.Download(destination, content));
             status.Text = $"Exported {content.Count} entries to {destination}";
         }
+    }
+
+    async Task SaveDirect(int kind)
+    {
+        if (session == null)
+            throw new InvalidOperationException("Open an image first.");
+
+        var layer = layers.SelectedItem as Layer;
+        if (kind < 2 && layer == null)
+            throw new InvalidOperationException("Select a layer first.");
+
+        var dialog = new OpenFolderDialog { Title = "Choose save location" };
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        var filesystem = kind == 2
+            ? session.Layers.LastOrDefault()?.Files ?? new Dictionary<string, ImageFile>(StringComparer.Ordinal)
+            : layer!.Files;
+        var entries = kind == 0 ? ExplorerModel.ChangedFiles(layer!) : filesystem;
+        var label = kind == 0
+            ? $"layer-{layers.SelectedIndex + 1}"
+            : kind == 1
+                ? $"filesystem-layer-{layers.SelectedIndex + 1}"
+                : "image-filesystem";
+        var destination = Path.Combine(
+            dialog.FolderName,
+            "DockerImageExplorer-" + label + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N")[..6]);
+        status.Text = "Saving…";
+        var result = await Task.Run(() => ExplorerModel.SaveWindows(destination, entries, filesystem));
+        status.Text = result.Describe(destination);
     }
 
     async Task Export(int kind)
