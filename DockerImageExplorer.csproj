@@ -1,5 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">  <PropertyGroup>
-    <OutputType>WinExe</OutputType><AssemblyName>DockerImageExplorer</AssemblyName><RootNamespace>DockerImageExplorer</RootNamespace><ApplicationIcon>AppIcon.ico</ApplicationIcon><SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>DockerImageExplorer</AssemblyName>
+    <RootNamespace>DockerImageExplorer</RootNamespace>
+    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
@@ -12,9 +17,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
-  <ItemGroup><Compile Include="Core.cs" /><Compile Include="App.cs" /><Compile Include="Interactions.cs" /><Compile Include="ExplorerModel.cs" /><Compile Include="FileIcons.cs" /><Resource Include="AppIcon.ico" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="Core.cs" />
+    <Compile Include="App.cs" />
+    <Compile Include="Interactions.cs" />
+    <Compile Include="ExplorerModel.cs" />
+    <Compile Include="FileIcons.cs" />
+    <Resource Include="AppIcon.ico" />
+  </ItemGroup>
 </Project>
-
-
-
-
