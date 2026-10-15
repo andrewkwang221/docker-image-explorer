@@ -39,6 +39,14 @@ dotnet publish DockerImageExplorer.csproj -c Release -r win-x64 --self-contained
 
 The supplied portable package bundles the SDK's .NET 8.0.31 runtime and Windows Desktop runtime; launch was verified on this machine without an installed .NET runtime. The SDK is not included.
 
+## Run from source
+
+With the .NET 8 SDK installed on Windows:
+
+```powershell
+dotnet run --project DockerImageExplorer.csproj -c Release
+```
+
 ## Validation
 
 Release build: zero warnings or errors. Automated tests cover Docker and OCI archive loading, gzip archives/layers, immutable lower-layer snapshots, normal and opaque whiteouts, same-layer additions, modification classification, history alignment, content, merged export, unsafe path rejection, folder reconstruction, badges, recursive selection deduplication, downloads, combined filters, and Windows name validation. A portable application launch was verified. Full interactive UI testing has not been performed.
@@ -79,6 +87,7 @@ git status
 git log --oneline
 git tag
 dotnet build DockerImageExplorer.csproj -c Release
+dotnet run --project DockerImageExplorer.csproj -c Release
 dotnet run --project Tests/Tests.csproj -c Release
 dotnet run --project UITests/UITests.csproj -c Release
 ```
