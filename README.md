@@ -1,10 +1,10 @@
-# DockerImageExplorer 1.0
+# DockerImageExplorer 1.1
 
 English-only Windows x64 desktop application. No Docker Engine, Docker CLI, or installed .NET runtime is required for the portable build.
 
 ## Run
 
-Extract DockerImageExplorer-Windows-x64.zip into a folder, then double-click DockerImageExplorer.exe. Keep all bundled files together.
+Extract DockerImageExplorer-1.1-Windows-x64.zip into a folder, then double-click DockerImageExplorer.exe. Keep all bundled files together.
 
 ## Use
 
@@ -61,11 +61,11 @@ Right-click a layer for Export layer, Save layer, Export file system, Save file 
 UI regression checks verify routed Backspace, search exclusion, parent folder, context-menu labels, Export menu labels, and media controls. Run them on Windows with dotnet run --project UITests/UITests.csproj -c Release. Actual video/audio codec coverage has not been exhaustively tested.
 
 
-## Version 1.0 installer
+## Version 1.1 installer
 
-Run DockerImageExplorer-1.0-Setup.exe. Supports Windows 10/11 x64 and installs for the current user without administrator privileges. The default location is %LOCALAPPDATA%\Programs\DockerImageExplorer. Includes the private .NET runtime, a Start menu shortcut, an optional desktop shortcut, and registration in Windows Installed Apps for uninstalling. The installer and application are English only. The release is unsigned.
+Run DockerImageExplorer-1.1-Setup.exe. Supports Windows 10/11 x64 and installs for the current user without administrator privileges. The default location is %LOCALAPPDATA%\Programs\DockerImageExplorer. Includes the private .NET runtime, a Start menu shortcut, an optional desktop shortcut, and registration in Windows Installed Apps for uninstalling. The installer and application are English only. The release is unsigned.
 
-The portable build remains available as DockerImageExplorer-1.0-Windows-x64.zip. Application assembly/file version is 1.0.0.0; product/display version is 1.0.
+The portable build remains available as DockerImageExplorer-1.1-Windows-x64.zip. Application assembly/file version is 1.1.0.0; product/display version is 1.1.
 
 To rebuild the installer, publish the app to Portable, install the NSIS compiler, and run:
 
@@ -80,7 +80,7 @@ Installer test mode (/S /TESTMODE /D=absolute-test-directory) suppresses shortcu
 
 ## Git project
 
-This download is a local Git repository containing the version 1.0 source, an initial commit on main, and the v1.0.0 tag. Extract the ZIP, including its hidden .git directory, then open the extracted DockerImageExplorer-Git folder.
+This download is a local Git repository containing the version 1.1 source, the commit history on main, and the v1.1 tag. Extract the ZIP, including its hidden .git directory, then open the extracted DockerImageExplorer-Git folder.
 
 ```powershell
 git status

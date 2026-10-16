@@ -4,8 +4,8 @@ Unicode true
 !include "FileFunc.nsh"
 !include "x64.nsh"
 !include "WinVer.nsh"
-Name "DockerImageExplorer 1.0"
-OutFile "..\..\DockerImageExplorer-1.0-Setup.exe"
+Name "DockerImageExplorer 1.1"
+OutFile "..\release\DockerImageExplorer-1.1-Setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\DockerImageExplorer"
 InstallDirRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DockerImageExplorer" "InstallLocation"
 RequestExecutionLevel user
@@ -13,11 +13,11 @@ SetCompressor /SOLID lzma
 SetCompressorDictSize 32
 Icon "..\AppIcon.ico"
 UninstallIcon "..\AppIcon.ico"
-VIProductVersion "1.0.0.0"
+VIProductVersion "1.1.0.0"
 VIAddVersionKey /LANG=1033 "ProductName" "DockerImageExplorer"
-VIAddVersionKey /LANG=1033 "ProductVersion" "1.0"
-VIAddVersionKey /LANG=1033 "FileVersion" "1.0.0.0"
-VIAddVersionKey /LANG=1033 "FileDescription" "DockerImageExplorer 1.0 Setup"
+VIAddVersionKey /LANG=1033 "ProductVersion" "1.1"
+VIAddVersionKey /LANG=1033 "FileVersion" "1.1.0.0"
+VIAddVersionKey /LANG=1033 "FileDescription" "DockerImageExplorer 1.1 Setup"
 VIAddVersionKey /LANG=1033 "LegalCopyright" ""
 Var TestMode
 !define MUI_ABORTWARNING
@@ -79,7 +79,7 @@ Section "DockerImageExplorer (required)" MainSection
         CreateShortCut "$SMPROGRAMS\DockerImageExplorer\DockerImageExplorer.lnk" "$INSTDIR\DockerImageExplorer.exe" "" "$INSTDIR\DockerImageExplorer.exe"
         CreateShortCut "$SMPROGRAMS\DockerImageExplorer\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
         WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DockerImageExplorer" "DisplayName" "DockerImageExplorer"
-        WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DockerImageExplorer" "DisplayVersion" "1.0"
+        WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DockerImageExplorer" "DisplayVersion" "1.1"
         WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DockerImageExplorer" "InstallLocation" "$INSTDIR"
         WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DockerImageExplorer" "DisplayIcon" "$INSTDIR\DockerImageExplorer.exe"
         WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\DockerImageExplorer" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'

@@ -1,16 +1,13 @@
-# DockerImageExplorer 1.0
+# DockerImageExplorer 1.1
 
-Initial Windows x64 release.
+Windows shell update for the English-only x64 desktop application.
 
-- Opens Docker save and single-platform OCI archives without Docker Engine.
-- Browses per-layer added, modified, deleted, and unchanged files with folder navigation.
-- Includes wildcard search, file-type filters, multi-selection, context-menu exports, and final-layer labeling.
-- Previews text, binary data, images, and Windows-codec-supported video/audio.
-- Exports selected files/folders, tar selections, layer archives, and reconstructed filesystems.
+- Places the menus in the title bar, with full-width separators and shortcut labels.
+- Lists image layers newest first and keeps export names tied to the real layer number.
+- Renames file actions to Save and Export, and opens the saved location in File Explorer when a save or export finishes.
+- Restyles the About window to match the application, without a separate title bar.
 - Includes English-only portable and per-user installer packages with a private .NET runtime.
 
-Version metadata: product 1.0; assembly/file 1.0.0.0.
-
-Validation: release build and core/UI regression checks passed. Isolated installer testing verified every installed payload file against its source, confirmed the installed application's version and launch, and verified that uninstall removed the app while preserving an unrelated file. This test mode intentionally suppresses Windows registry and shortcut changes. Actual media decoding depends on installed Windows codecs.
+Version metadata: product 1.1; assembly/file 1.1.0.0.
 
 The installer is unsigned.

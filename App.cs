@@ -104,7 +104,7 @@ public sealed partial class Viewer : Window
     public Viewer()
     {
         Icon = IconFrames().OrderByDescending(frame => frame.PixelWidth).First();
-        Title = "DockerImageExplorer 1.0";
+        Title = "DockerImageExplorer 1.1";
         Width = 1380;
         Height = 900;
         MinWidth = 900;
@@ -790,7 +790,7 @@ public sealed partial class Viewer : Window
         });
         body.Children.Add(new TextBlock
         {
-            Text = "Version 1.0",
+            Text = "Version 1.1",
             Foreground = Brush("Secondary"),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 4, 0, 0),
@@ -1044,7 +1044,7 @@ public sealed partial class Viewer : Window
         UpdateEmpty();
         layers.ItemsSource = Enumerable.Reverse(next.Layers).ToList();
         layers.SelectedIndex = next.Layers.Count == 0 ? -1 : 0;
-        Title = "DockerImageExplorer 1.0 — " + dialog.FileName;
+        Title = "DockerImageExplorer 1.1 — " + dialog.FileName;
         if (next.Layers.Count == 0)
         {
             files.ItemsSource = null;
