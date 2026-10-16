@@ -24,6 +24,7 @@ public sealed class Layer
 {
     public required string Archive { get; init; }
     public required string Title { get; set; }
+    public int Number { get; init; }
     public required string Command { get; init; }
     public List<Change> Changes { get; } = [];
     public Dictionary<string, ImageFile> Files { get; set; } = new(StringComparer.Ordinal);
@@ -151,6 +152,7 @@ public sealed class ImageSession : IDisposable
             var layer = new Layer
             {
                 Archive = path,
+                Number = Layers.Count + 1,
                 Title = $"Layer {Layers.Count + 1}",
                 Command = commands.ElementAtOrDefault(Layers.Count) ?? "",
             };

@@ -290,14 +290,14 @@ public static class ExplorerModel
         {
             var parts = file.Path.Split('/');
             if (parts.Any(part => part.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || part.EndsWith('.') || part.EndsWith(' ') || IsReserved(part)))
-                throw new IOException($"Windows cannot store \"{file.Path}\". Use Export as tar instead.");
+                throw new IOException($"Windows cannot store \"{file.Path}\". Use Export instead.");
 
             var prefix = "";
             foreach (var part in parts)
             {
                 prefix = prefix.Length == 0 ? part : prefix + "/" + part;
                 if (components.TryGetValue(prefix, out var casing) && casing != prefix)
-                    throw new IOException($"Case-sensitive names conflict on Windows at \"{file.Path}\". Use Export as tar instead.");
+                    throw new IOException($"Case-sensitive names conflict on Windows at \"{file.Path}\". Use Export instead.");
 
                 components[prefix] = prefix;
             }
@@ -305,7 +305,7 @@ public static class ExplorerModel
             var target = Path.GetFullPath(ToWindows(destination, file.Path));
             var root = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
             if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !targets.Add(target))
-                throw new IOException($"Conflicting Windows paths at \"{file.Path}\". Use Export as tar instead.");
+                throw new IOException($"Conflicting Windows paths at \"{file.Path}\". Use Export instead.");
         }
     }
 

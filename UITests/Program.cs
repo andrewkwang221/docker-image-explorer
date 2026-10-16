@@ -50,22 +50,22 @@ class Program
             }),
             "Layer menu incorrect");
         Assert(
-            files.ContextMenu.Items.Cast<MenuItem>().Select(i => (string)i.Header).SequenceEqual(new[] { "Export", "Export as tar" }),
+            files.ContextMenu.Items.Cast<MenuItem>().Select(i => (string)i.Header).SequenceEqual(new[] { "Save", "Export" }),
             "Explorer menu incorrect");
 
-        var labels = Field<WrapPanel>("toolbar").Children.Cast<Button>().Select(b => (string)b.Content).ToArray();
+        var menuLabels = Field<MenuItem>("exportMenu").Items.OfType<MenuItem>().Select(i => (string)i.Header).ToList();
         Assert(
-            labels.Contains("Export selected")
-                && labels.Contains("Export selection as tar")
-                && labels.Contains("Save layer")
-                && labels.Contains("Save filesystem")
-                && labels.Contains("Save entire filesystem")
-                && !labels.Contains("Copy image archive"),
-            "Toolbar incorrect");
+            menuLabels.Contains("Save layer")
+                && menuLabels.Contains("Save filesystem")
+                && menuLabels.Contains("Save entire filesystem")
+                && !menuLabels.Contains("Copy image archive"),
+            "Export menu incorrect");
+        var fileMenu = Field<Menu>("mainMenu").Items.OfType<MenuItem>().First();
+        Assert(fileMenu.Items.OfType<MenuItem>().Any(i => (string)i.Header == "Open archive"), "Open command missing");
         Assert(Field<TabControl>("previewTabs").Items.Cast<TabItem>().Any(t => (string)t.Header == "Video / Audio"), "Media preview missing");
         Assert(Field<MediaElement>("media").LoadedBehavior == MediaState.Manual, "Media playback should be controlled manually");
         viewer.Close();
         app.Shutdown();
-        Console.WriteLine("PASS: routed Backspace navigation, editable search exclusion, parent folder, context menus, toolbar labels, media controls.");
+        Console.WriteLine("PASS: routed Backspace navigation, editable search exclusion, parent folder, context menus, Export menu labels, media controls.");
     }
 }

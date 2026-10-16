@@ -99,8 +99,8 @@ public sealed partial class Viewer
         };
 
         files.ContextMenu = Menu(
-            ("Export", () => SaveSelection(false)),
-            ("Export as tar", () => SaveSelection(true)));
+            ("Save", () => SaveSelection(false)),
+            ("Export", () => SaveSelection(true)));
         files.PreviewMouseRightButtonDown += (_, e) =>
         {
             var row = Ancestor<DataGridRow>(e.OriginalSource as DependencyObject);
@@ -125,8 +125,12 @@ public sealed partial class Viewer
                 item.IsEnabled = !busy && session != null && files.SelectedItems.Cast<ExplorerRow>().Any(r => r.Name != "..");
         };
 
-        var panel = new DockPanel();
-        var controls = new WrapPanel();
+        var panel = new DockPanel
+        {
+            Margin = new Thickness(8, 0, 8, 8),
+            Background = Theme.Get(this, "PreviewSurface"),
+        };
+        var controls = new WrapPanel { Margin = new Thickness(8) };
         DockPanel.SetDock(controls, Dock.Bottom);
         panel.Children.Add(controls);
         foreach (var (label, run) in new (string, Action)[]
@@ -143,22 +147,22 @@ public sealed partial class Viewer
             var button = new Button
             {
                 Content = label,
-                Margin = new Thickness(4),
-                Padding = new Thickness(12, 4, 12, 4),
+                Margin = new Thickness(0, 0, 8, 0),
             };
             button.Click += (_, _) => run();
             controls.Children.Add(button);
         }
 
+        seek.Margin = new Thickness(0, 0, 8, 0);
         controls.Children.Add(seek);
-        controls.Children.Add(new TextBlock { Text = "Volume", VerticalAlignment = VerticalAlignment.Center });
+        controls.Children.Add(new TextBlock { Text = "Volume", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
         var volume = new Slider
         {
             Minimum = 0,
             Maximum = 1,
             Value = 0.7,
             Width = 90,
-            Margin = new Thickness(6),
+            VerticalAlignment = VerticalAlignment.Center,
         };
         volume.ValueChanged += (_, _) => media.Volume = volume.Value;
         controls.Children.Add(volume);

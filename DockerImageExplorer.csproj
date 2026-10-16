@@ -23,6 +23,7 @@
     <Compile Include="Interactions.cs" />
     <Compile Include="ExplorerModel.cs" />
     <Compile Include="FileIcons.cs" />
+    <Compile Include="Theme.cs" />
     <Resource Include="AppIcon.ico" />
   </ItemGroup>
 </Project>
